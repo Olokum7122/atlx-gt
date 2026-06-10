@@ -245,12 +245,22 @@ export async function getAntojadosUserCascadeCrud(userId) {
 }
 
 async function resolveCheckedContextFromInstance(instanceId, { templateCode, scopeType } = {}) {
-  const instance = await getAntojadosInstanceCrud(instanceId);
-  if (!instance) {
+  const pool = await getAntojadosPool();
+  const result = await pool
+    .request()
+    .input("instanceId", sql.NVarChar(64), normalizeCode(instanceId))
+    .query(`
+      SELECT TOP (1) instance_type
+      FROM antojados_core.sys_instancia
+      WHERE instance_id = @instanceId;
+    `);
+
+  const instanceType = String(result.recordset?.[0]?.instance_type || "").trim();
+  if (!instanceType) {
     throw new Error("resolveCheckedContextFromInstance: instancia no encontrada");
   }
 
-  const isUserInstance = String(instance.instance_type || "").trim() === INSTANCE_TYPE.USER;
+  const isUserInstance = instanceType === INSTANCE_TYPE.USER;
   const defaultTemplateCode = isUserInstance ? "DEFAULT_USER" : "DEFAULT_SPONSOR";
   const defaultScopeType = isUserInstance ? SCOPE_TYPE.USER : SCOPE_TYPE.SPONSOR;
 
@@ -729,12 +739,16 @@ export async function getAntojadosCheckedDimensionsGridCrud({ instanceId, templa
     .execute("antojados_core.sp_sys_dimension_location_checked_get_grid");
 
   return result.recordset
-    .map(mapCheckedDimensionLocation)
+    .map((row) => mapCheckedDimensionLocation({
+      ...row,
+      scope_type: row?.scope_type ?? resolvedScopeType,
+    }))
     .filter((row) => {
       const scope = String(row?.scope_type || "").trim().toLowerCase();
       if (scope !== "sponsor") return true;
       const mode = String(row?.control_mode || "").trim().toUpperCase();
-      return mode === "OPERABLE";
+      // En sponsor, checked puede venir en DEFAULT (sin override manual) u OPERABLE.
+      return mode === "OPERABLE" || mode === "DEFAULT" || mode === "";
     });
 }
 
@@ -775,12 +789,16 @@ export async function getAntojadosCheckedSubDimensionsGridCrud({ instanceId, tem
     .execute("antojados_core.sp_sys_sub_dimension_location_checked_get_grid");
 
   return result.recordset
-    .map(mapCheckedSubDimensionLocation)
+    .map((row) => mapCheckedSubDimensionLocation({
+      ...row,
+      scope_type: row?.scope_type ?? resolvedScopeType,
+    }))
     .filter((row) => {
       const scope = String(row?.scope_type || "").trim().toLowerCase();
       if (scope !== "sponsor") return true;
       const mode = String(row?.control_mode || "").trim().toUpperCase();
-      return mode === "OPERABLE";
+      // En sponsor, checked puede venir en DEFAULT (sin override manual) u OPERABLE.
+      return mode === "OPERABLE" || mode === "DEFAULT" || mode === "";
     });
 }
 

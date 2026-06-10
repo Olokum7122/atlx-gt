@@ -131,10 +131,14 @@ export function mapCheckedDimensionLocation(row) {
   const scopeType = String(row.scope_type ?? '').trim().toLowerCase();
   const checked = row.is_checked == null ? null : row.is_checked === true || row.is_checked === 1;
   const sponsorVisible = row.visible_override == null
-    ? checked
+    ? (checked == null
+      ? (row.template_visible === true || row.template_visible === 1)
+      : checked)
     : (row.visible_override === true || row.visible_override === 1);
   const sponsorEnabled = row.enabled_override == null
-    ? checked
+    ? (checked == null
+      ? (row.template_enabled === true || row.template_enabled === 1)
+      : checked)
     : (row.enabled_override === true || row.enabled_override === 1);
   return {
     template_location_id: row.template_location_id,
@@ -166,11 +170,12 @@ export function mapCheckedSubDimensionLocation(row) {
   if (!row.template_sub_location_id) throw new Error('mapCheckedSubDimensionLocation: template_sub_location_id faltante');
   const scopeType = String(row.scope_type ?? '').trim().toLowerCase();
   const checked = row.is_checked == null ? null : row.is_checked === true || row.is_checked === 1;
+  const templateEnabled = row.template_enabled === true || row.template_enabled === 1;
   const sponsorVisible = row.visible_override == null
-    ? checked
+    ? (checked == null ? templateEnabled : checked)
     : (row.visible_override === true || row.visible_override === 1);
   const sponsorEnabled = row.enabled_override == null
-    ? checked
+    ? (checked == null ? templateEnabled : checked)
     : (row.enabled_override === true || row.enabled_override === 1);
   return {
     template_sub_location_id: row.template_sub_location_id,
